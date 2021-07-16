@@ -1,5 +1,5 @@
 import requests
-
+import sys
 
 class Participant(object):
     def __init__(self,name,champion,gold_earned):
@@ -28,7 +28,7 @@ class Participant(object):
         
 
 
-key = "RGAPI-b9d3fc35-eb1b-4912-8096-18a0856a1539"
+key = "RGAPI-bb36726f-70ac-4448-965a-67ea9fa8c221"
 key_param = ("api_key",key)
 def build_url(url, *params):
     for param in params:
@@ -39,6 +39,15 @@ def build_url(url, *params):
     url = url[:-1]
     return url
         
+    
+def timeline(match):
+    url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s/timeline?" % (match)
+    match_url = build_url(url,key_param)
+    match_timeline = requests.get(url=match_url).json()
+    print(match_timeline)
+
+    
+    
 def analyze(match):
     url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s?" % (match)
     match_url = build_url(url,key_param)
@@ -47,7 +56,7 @@ def analyze(match):
         new = Participant(participant["summonerName"],participant["championName"],participant["goldEarned"])
         print(new)
     
-    
+    https://autolab.andrew.cmu.edu/courses/10601b-f18/assessments/decisiontree/handout
     
     
 def run():
@@ -75,7 +84,10 @@ def run():
     
     
     for match in getMatches:
-        analyze(match)
+        #analyze(match)
+        print(match)
+        timeline(match)
+        break
 
     
 
