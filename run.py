@@ -2,10 +2,26 @@ import requests
 import sys
 
 class Participant(object):
-    def __init__(self,name,champion,gold_earned):
+    def __init__(self,name,champion,gold_earned,gold_2,gold_4,gold_6,pos_2,pos_4,pos_6,jungle_minions_2,jungle_minions_4,jungle_minions_6,minions_2,minions_4,minions_6,damage_dealt_2,damage_dealt_4,damage_dealt_6):
         self.name = name
         self.champion = champion
         self.gold_earned = gold_earned
+        self.gold_2 = gold_2
+        self.gold_4 = gold_4
+        self.gold_6 = gold_6
+        self.pos_2 = pos_2
+        self.pos_4 = pos_4
+        self.pos_6 = pos_6
+        self.jungle_minions_2 = jungle_minions_2
+        self.jungle_minions_4 = jungle_minions_4
+        self.jungle_minions_6 = jungle_minions_6
+        self.minions_2 = minions_2 - self.jungle_minions_2
+        self.minions_4 = minions_4 - self.jungle_minions_4
+        self.minions_6 = minions_6 - self.jungle_minions_6
+        self.damage_dealt_2 = damage_dealt_2
+        self.damage_dealt_4 = damage_dealt_4
+        self.damage_dealt_6 = damage_dealt_6
+        
         '''
         self.damage_dealt = damage_dealt
         self.vision_score = vision_score
@@ -21,14 +37,27 @@ class Participant(object):
     
     def __repr__(self):
 
-        return "summoner name: \t%s\nchampion: \t%s\ngold earned: \t%s" % (self.name,self.champion,self.gold_earned)
+        return "summoner name: \t%s\n \
+                champion: \t%s\n \
+                gold earned: \t%s\n \
+                gold at 2: \t%s\n \
+                gold at 4: \t%s\n \
+                gold at 6: \t%s\n \
+                pos at 2: \t%r\n \
+                pos at 4: \t%r\n \
+                pos at 6: \t%r\n \
+                damage dealt at 2: \t%s\n \
+                damage dealt at 4: \t%s\n \
+                damage dealt at 6: \t%s\n \
+                " % (self.name,self.champion,self.gold_earned,self.gold_2,self.gold_4,self.gold_6,
+                     self.pos_2,self.pos_4,self.pos_6,self.damage_dealt_2,self.damage_dealt_4,self.damage_dealt_6)
     
         
         
         
 
 
-key = "RGAPI-bb36726f-70ac-4448-965a-67ea9fa8c221"
+key = "RGAPI-71749747-7eec-45c7-b4e8-d34f3bae967d"
 key_param = ("api_key",key)
 def build_url(url, *params):
     for param in params:
@@ -39,26 +68,38 @@ def build_url(url, *params):
     url = url[:-1]
     return url
         
-    
-def timeline(match):
-    url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s/timeline?" % (match)
-    match_url = build_url(url,key_param)
-    match_timeline = requests.get(url=match_url).json()
-    print(match_timeline)
 
-    
-    
 def analyze(match):
     url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s?" % (match)
     match_url = build_url(url,key_param)
     info = requests.get(url=match_url).json()
-    for participant in info["info"]["participants"]:
-        new = Participant(participant["summonerName"],participant["championName"],participant["goldEarned"])
+    url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s/timeline?" % (match)
+    timeline_url = build_url(url,key_param)
+    timeline_info = requests.get(url=timeline_url).json()
+    for i in range(len(info["info"]["participants"])):
+        participant = info["info"]["participants"][i]
+        summonerName = participant["summonerName"]
+        championName = participant["championName"]
+        goldEarned = participant["goldEarned"]
+        gold_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["totalGold"]
+        gold_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["totalGold"]
+        gold_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["totalGold"]
+        pos_2 = (timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["position"]["y"])
+        pos_4 = (timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["position"]["y"])
+        pos_6 = (timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["position"]["y"])
+        jungle_minions_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
+        jungle_minions_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
+        jungle_minions_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
+        minions_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_2
+        minions_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_4
+        minions_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_6
+        damage_dealt_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
+        damage_dealt_4= timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
+        damage_dealt_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
+        
+        new = Participant(summonerName,championName,goldEarned,gold_2,gold_4,gold_6,pos_2,pos_4,pos_6,jungle_minions_2,jungle_minions_4,jungle_minions_6,minions_2,minions_4,minions_6,damage_dealt_2,damage_dealt_4,damage_dealt_6)
         print(new)
-    
-    https://autolab.andrew.cmu.edu/courses/10601b-f18/assessments/decisiontree/handout
-    
-    
+
 def run():
 
     summoner = input("put summoner name\n")
@@ -86,7 +127,7 @@ def run():
     for match in getMatches:
         #analyze(match)
         print(match)
-        timeline(match)
+        analyze(match)
         break
 
     
