@@ -16,13 +16,19 @@
 
 from sklearn import preprocessing
 import csv, requests
-
+from pymongo import MongoClient
+from matches import match_list
+from time import sleep
 
 key = "RGAPI-71749747-7eec-45c7-b4e8-d34f3bae967d"
 key_param = ("api_key",key)
+client = MongoClient("mongodb+srv://m001-student:m001-mongodb-basics@sandbox.scjiy.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
+db = client.RiotData
+
 
 class Participant(object):
-    def __init__(self,champion,gold_earned,gold_2,gold_4,gold_6,pos_2,pos_4,pos_6,jungle_minions_2,jungle_minions_4,jungle_minions_6,minions_2,minions_4,minions_6,damage_dealt_2,damage_dealt_4,damage_dealt_6):
+    def __init__(self,name,champion,gold_earned,gold_2,gold_4,gold_6,pos_2,pos_4,pos_6,jungle_minions_2,jungle_minions_4,jungle_minions_6,minions_2,minions_4,minions_6,damage_dealt_2,damage_dealt_4,damage_dealt_6):
+        self.name = name
         self.champion = champion
         self.gold_earned = gold_earned
         self.gold_2 = gold_2
@@ -56,7 +62,8 @@ class Participant(object):
     
     def __repr__(self):
 
-        return "champion: \t%s\n \
+        return "summoner name: \t%s\n \
+                champion: \t%s\n \
                 gold earned: \t%s\n \
                 gold at 2: \t%s\n \
                 gold at 4: \t%s\n \
@@ -67,13 +74,15 @@ class Participant(object):
                 damage dealt at 2: \t%s\n \
                 damage dealt at 4: \t%s\n \
                 damage dealt at 6: \t%s\n \
-                " % (self.champion,self.gold_earned,self.gold_2,self.gold_4,self.gold_6,
+                " % (self.name,self.champion,self.gold_earned,self.gold_2,self.gold_4,self.gold_6,
                      self.pos_2,self.pos_4,self.pos_6,self.damage_dealt_2,self.damage_dealt_4,self.damage_dealt_6)
     
         
+        
+        
+
 def build_url(url, *params):
     for param in params:
-        print(param)
         field = param[0]
         value = param[1]
         url = url + "%s=%s&" % (field,value)
@@ -85,38 +94,79 @@ def build_url(url, *params):
 
 
 def parse(games):
-    for game in games:
-        match = game[:-2]
-        url = "https://euw1.api.riotgames.com/lol/match/v4/matches/%s?" % (match)
-        match_url = build_url(url,key_param)
-        info = requests.get(url=match_url).json()
-        url = "https://euw1.api.riotgames.com//lol/match/v4/timelines/by-match/%s?" % (match)
-        timeline_url = build_url(url,key_param)
-        timeline_info = requests.get(url=timeline_url).json()
+    collection = db.newData
+    for j in range(len(match_list)):
+        if j % 50 == 0 and j > 0:
+            print("sleeping cuz too many requests")
+            sleep(120)
+            print("done sleeping")
+        game = match_list[j]
+        
+        try:
+            match = "KR_" + str(game)
+            url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s?" % (match)
+            match_url = build_url(url,key_param)
+            info = requests.get(url=match_url).json()
+            url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s/timeline?" % (match)
+            timeline_url = build_url(url,key_param)
+            timeline_info = requests.get(url=timeline_url).json()
 
-        for i in range(len(info["participants"])):
-            participant = info["participants"][i]
-            championName = participant["championName"]
-            goldEarned = participant["goldEarned"]
-            gold_2 = timeline_info["frames"][2]["participantFrames"][str(i+1)]["totalGold"]
-            gold_4 = timeline_info["frames"][4]["participantFrames"][str(i+1)]["totalGold"]
-            gold_6 = timeline_info["frames"][6]["participantFrames"][str(i+1)]["totalGold"]
-            pos_2 = (timeline_info["frames"][2]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["frames"][2]["participantFrames"][str(i+1)]["position"]["y"])
-            pos_4 = (timeline_info["frames"][4]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["frames"][4]["participantFrames"][str(i+1)]["position"]["y"])
-            pos_6 = (timeline_info["frames"][6]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["frames"][6]["participantFrames"][str(i+1)]["position"]["y"])
-            jungle_minions_2 = timeline_info["frames"][2]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
-            jungle_minions_4 = timeline_info["frames"][4]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
-            jungle_minions_6 = timeline_info["frames"][6]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
-            minions_2 = timeline_info["frames"][2]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_2
-            minions_4 = timeline_info["frames"][4]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_4
-            minions_6 = timeline_info["frames"][6]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_6
-            damage_dealt_2 = timeline_info["frames"][2]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
-            damage_dealt_4= timeline_info["frames"][4]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
-            damage_dealt_6 = timeline_info["frames"][6]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
+            teams = dict()
+            teams["A"] = []
+            teams["B"] = []
+            for i in range(len(info["info"]["participants"])):
+                participant = info["info"]["participants"][i]
+                summonerName = participant["summonerName"]
+                championName = participant["championName"]
+                teamPosition = participant["teamPosition"]
+                goldEarned = participant["goldEarned"]
+                gold_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["totalGold"]
+                gold_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["totalGold"]
+                gold_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["totalGold"]
+                pos_2 = (timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["position"]["y"])
+                pos_4 = (timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["position"]["y"])
+                pos_6 = (timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["position"]["y"])
+                jungle_minions_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
+                jungle_minions_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
+                jungle_minions_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
+                minions_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_2
+                minions_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_4
+                minions_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_6
+                damage_dealt_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
+                damage_dealt_4= timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
+                damage_dealt_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
 
-            new = Participant(championName,goldEarned,gold_2,gold_4,gold_6,pos_2,pos_4,pos_6,jungle_minions_2,jungle_minions_4,jungle_minions_6,minions_2,minions_4,minions_6,damage_dealt_2,damage_dealt_4,damage_dealt_6)
-            print(new)
-            break
+                new = Participant(summonerName,championName,goldEarned,gold_2,gold_4,gold_6,pos_2,pos_4,pos_6,jungle_minions_2,jungle_minions_4,jungle_minions_6,minions_2,minions_4,minions_6,damage_dealt_2,damage_dealt_4,damage_dealt_6)
+                dictdata = {
+                    "id": i+1,
+                    "summonerName" : summonerName,
+                    "championName" : championName,
+                    "teamPosition" : teamPosition,
+                    "goldEarned" : goldEarned,
+                    "gold_2" : gold_2,
+                    "gold_4" : gold_4,
+                    "gold_6" : gold_6,
+                    "pos_2" : pos_2,
+                    "pos_4" : pos_4,
+                    "pos_6" : pos_6,
+                    "jungle_minions_2" : jungle_minions_2,
+                    "jungle_minions_4" : jungle_minions_4,
+                    "jungle_minions_6" : jungle_minions_6,
+                    "minions_2" : minions_2,
+                    "minions_4" : minions_4,
+                    "minions_6" : minions_6,
+                    "damage_dealt_2" : damage_dealt_2,
+                    "damage_dealt_4" : damage_dealt_4,
+                    "damage_dealt_6" : damage_dealt_6
+                }
+                if i < 5:
+                    teams["A"].append(dictdata)
+                else:
+                    teams["B"].append(dictdata)
+            collection.update_one(teams,{"$set":teams},upsert=True)
+
+        except Exception as e: print(e)
+        
 
 
 def main():
