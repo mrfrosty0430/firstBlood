@@ -6,6 +6,7 @@ import numpy as np
 import joblib
 from bson.objectid import ObjectId
 
+
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_california_housing
@@ -22,7 +23,8 @@ class positions(Enum):
 client = MongoClient("mongodb+srv://m001-student:m001-mongodb-basics@sandbox.scjiy.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 db = client.RiotData
 
-dsds
+
+
 positionsDict = dict()
 positionsDict[0] = "JGL"
 positionsDict[1] = "TOP"
@@ -31,27 +33,9 @@ positionsDict[3] = "BOT"
 positionsDict[4] = "SUP"
 
 
-total = []
-labels = []
-gold_2 = []
-gold_4 = []
-gold_6 = []
-pos_2x = []
-pos_4x = []
-pos_6x = []
-pos_2y = []
-pos_4y = []
-pos_6y = []
-jgl_min_2 = []
-jgl_min_4 = []
-jgl_min_6 = []
-min_2 = []
-min_4 = []
-min_6 = []
-damage_2 = []
-damage_4 = []
-damage_6 = []
 
+
+    
 
 def addData(participant):
     if participant["teamPosition"] == "TOP":
@@ -103,24 +87,7 @@ def readData():
             damn.append((participant["championName"],participant["teamPosition"]))
             #print(participant["championName"],participant["teamPosition"])
         names.append(damn)
-    total.append(gold_2)
-    total.append(gold_4)
-    total.append(gold_6)
-    total.append(pos_2x)
-    total.append(pos_4x)
-    total.append(pos_6x)
-    total.append(pos_2y)
-    total.append(pos_4y)
-    total.append(pos_6y)
-    total.append(jgl_min_2)
-    total.append(jgl_min_4)
-    total.append(jgl_min_6)
-    total.append(min_2)
-    total.append(min_4)
-    total.append(min_6)
-    total.append(damage_2)
-    total.append(damage_4)
-    total.append(damage_6)
+    prep_x()
     
     normalized = np.transpose(np.array(normalize(total)))
     print(normalized.shape)

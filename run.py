@@ -1,107 +1,133 @@
 import requests
+from decouple import config
 import sys
-
-class Participant(object):
-    def __init__(self,name,champion,gold_earned,gold_2,gold_4,gold_6,pos_2,pos_4,pos_6,jungle_minions_2,jungle_minions_4,jungle_minions_6,minions_2,minions_4,minions_6,damage_dealt_2,damage_dealt_4,damage_dealt_6):
-        self.name = name
-        self.champion = champion
-        self.gold_earned = gold_earned
-        self.gold_2 = gold_2
-        self.gold_4 = gold_4
-        self.gold_6 = gold_6
-        self.pos_2 = pos_2
-        self.pos_4 = pos_4
-        self.pos_6 = pos_6
-        self.jungle_minions_2 = jungle_minions_2
-        self.jungle_minions_4 = jungle_minions_4
-        self.jungle_minions_6 = jungle_minions_6
-        self.minions_2 = minions_2 - self.jungle_minions_2
-        self.minions_4 = minions_4 - self.jungle_minions_4
-        self.minions_6 = minions_6 - self.jungle_minions_6
-        self.damage_dealt_2 = damage_dealt_2
-        self.damage_dealt_4 = damage_dealt_4
-        self.damage_dealt_6 = damage_dealt_6
-        
-        '''
-        self.damage_dealt = damage_dealt
-        self.vision_score = vision_score
-        self.kills = kills
-        self.deaths = deaths
-        self.assists = assists
-        if deaths == 0:
-            self.kda = kills + assists
-        else:
-            self.kda = (kills + assists)/ deaths
-        '''
-    
-    
-    def __repr__(self):
-
-        return "summoner name: \t%s\n \
-                champion: \t%s\n \
-                gold earned: \t%s\n \
-                gold at 2: \t%s\n \
-                gold at 4: \t%s\n \
-                gold at 6: \t%s\n \
-                pos at 2: \t%r\n \
-                pos at 4: \t%r\n \
-                pos at 6: \t%r\n \
-                damage dealt at 2: \t%s\n \
-                damage dealt at 4: \t%s\n \
-                damage dealt at 6: \t%s\n \
-                " % (self.name,self.champion,self.gold_earned,self.gold_2,self.gold_4,self.gold_6,
-                     self.pos_2,self.pos_4,self.pos_6,self.damage_dealt_2,self.damage_dealt_4,self.damage_dealt_6)
-    
-        
-        
-        
+from analyze import analyze
+from classes import Participant
+from helper_functions import build_url
+from normalize import normalize
+import numpy as np
+import joblib
+from bson.objectid import ObjectId
+from sklearn.preprocessing import StandardScaler
 
 
-key = "RGAPI-71749747-7eec-45c7-b4e8-d34f3bae967d"
+key = config('KEY')
 key_param = ("api_key",key)
-def build_url(url, *params):
-    for param in params:
-        print(param)
-        field = param[0]
-        value = param[1]
-        url = url + "%s=%s&" % (field,value)
-    url = url[:-1]
-    return url
-        
 
-def analyze(match):
-    url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s?" % (match)
-    match_url = build_url(url,key_param)
-    info = requests.get(url=match_url).json()
-    url = "https://asia.api.riotgames.com/lol/match/v5/matches/%s/timeline?" % (match)
-    timeline_url = build_url(url,key_param)
-    timeline_info = requests.get(url=timeline_url).json()
-    for i in range(len(info["info"]["participants"])):
-        participant = info["info"]["participants"][i]
-        summonerName = participant["summonerName"]
-        championName = participant["championName"]
-        goldEarned = participant["goldEarned"]
-        gold_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["totalGold"]
-        gold_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["totalGold"]
-        gold_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["totalGold"]
-        pos_2 = (timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["position"]["y"])
-        pos_4 = (timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["position"]["y"])
-        pos_6 = (timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["position"]["x"],timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["position"]["y"])
-        jungle_minions_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
-        jungle_minions_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
-        jungle_minions_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["jungleMinionsKilled"]
-        minions_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_2
-        minions_4 = timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_4
-        minions_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["minionsKilled"] - jungle_minions_6
-        damage_dealt_2 = timeline_info["info"]["frames"][2]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
-        damage_dealt_4= timeline_info["info"]["frames"][4]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
-        damage_dealt_6 = timeline_info["info"]["frames"][6]["participantFrames"][str(i+1)]["damageStats"]["totalDamageDoneToChampions"]
-        
-        new = Participant(summonerName,championName,goldEarned,gold_2,gold_4,gold_6,pos_2,pos_4,pos_6,jungle_minions_2,jungle_minions_4,jungle_minions_6,minions_2,minions_4,minions_6,damage_dealt_2,damage_dealt_4,damage_dealt_6)
-        print(new)
+
+positionsDict = dict()
+positionsDict[0] = "JGL"
+positionsDict[1] = "TOP"
+positionsDict[2] = "MID"
+positionsDict[3] = "BOT"
+positionsDict[4] = "SUP"
+
+def addDataFromAPI(participant):
+    if participant.team_position == "TOP":
+        labels.append(1)
+    elif participant.team_position == "MIDDLE":
+        labels.append(2)
+    elif participant.team_position == "JUNGLE":
+        labels.append(0)
+    elif participant.team_position == "BOTTOM":
+        labels.append(3)
+    elif participant.team_position == "UTILITY":
+        labels.append(4)
+    else:
+        return
+    gold_2.append(participant.gold_2)
+    gold_4.append(participant.gold_4)
+    gold_6.append(participant.gold_6)
+    pos_2x.append(participant.pos_2[0])
+    pos_6x.append(participant.pos_4[0])
+    pos_4x.append(participant.pos_6[0])
+    pos_2y.append(participant.pos_2[1])
+    pos_4y.append(participant.pos_4[1])
+    pos_6y.append(participant.pos_6[1])
+    jgl_min_2.append(participant.jungle_minions_2)
+    jgl_min_4.append(participant.jungle_minions_4)
+    jgl_min_6.append(participant.jungle_minions_6)
+    min_2.append(participant.minions_2)
+    min_4.append(participant.minions_4)
+    min_6.append(participant.minions_6)
+    damage_2.append(participant.damage_dealt_2)
+    damage_4.append(participant.damage_dealt_4)
+    damage_6.append(participant.damage_dealt_6)
+    
+    
+    
+    
+
+def reset():
+    global total, labels, gold_2, gold_4, gold_6, pos_2x, pos_4x, pos_6x, pos_2y, pos_4y, pos_6y, jgl_min_2, jgl_min_4, jgl_min_6, min_2, min_4, min_6, damage_2, damage_4, damage_6
+    total = []
+    labels = []
+    gold_2 = []
+    gold_4 = []
+    gold_6 = []
+    pos_2x = []
+    pos_4x = []
+    pos_6x = []
+    pos_2y = []
+    pos_4y = []
+    pos_6y = []
+    jgl_min_2 = []
+    jgl_min_4 = []
+    jgl_min_6 = []
+    min_2 = []
+    min_4 = []
+    min_6 = []
+    damage_2 = []
+    damage_4 = []
+    damage_6 = []
+
+def prep_x():
+    global total, labels, gold_2, gold_4, gold_6, pos_2x, pos_4x, pos_6x, pos_2y, pos_4y, pos_6y, jgl_min_2, jgl_min_4, jgl_min_6, min_2, min_4, min_6, damage_2, damage_4, damage_6
+    total.append(gold_2)
+    total.append(gold_4)
+    total.append(gold_6)
+    total.append(pos_2x)
+    total.append(pos_4x)
+    total.append(pos_6x)
+    total.append(pos_2y)
+    total.append(pos_4y)
+    total.append(pos_6y)
+    total.append(jgl_min_2)
+    total.append(jgl_min_4)
+    total.append(jgl_min_6)
+    total.append(min_2)
+    total.append(min_4)
+    total.append(min_6)
+    total.append(damage_2)
+    total.append(damage_4)
+    total.append(damage_6)
+
+def init_vars():
+    global total, labels, gold_2, gold_4, gold_6, pos_2x, pos_4x, pos_6x, pos_2y, pos_4y, pos_6y, jgl_min_2, jgl_min_4, jgl_min_6, min_2, min_4, min_6, damage_2, damage_4, damage_6
+    
+    total = []
+    labels = []
+    gold_2 = []
+    gold_4 = []
+    gold_6 = []
+    pos_2x = []
+    pos_4x = []
+    pos_6x = []
+    pos_2y = []
+    pos_4y = []
+    pos_6y = []
+    jgl_min_2 = []
+    jgl_min_4 = []
+    jgl_min_6 = []
+    min_2 = []
+    min_4 = []
+    min_6 = []
+    damage_2 = []
+    damage_4 = []
+    damage_6 = []
 
 def run():
-
+    init_vars()
     summoner = input("put summoner name\n")
     url = "https://kr.api.riotgames.com/lol/summoner/v4/summoners/by-name/%s?" % (summoner)
     summoner_url = build_url(url,key_param)
@@ -122,13 +148,40 @@ def run():
     match_url = build_url(url,match_param,start_param,count_param,key_param)
     print(match_url)
     getMatches = requests.get(url = match_url).json()
-    
+    newclf = joblib.load('my_model.pkl')
     
     for match in getMatches:
-        #analyze(match)
-        print(match)
-        analyze(match)
-        break
+        print("new match with number ",match)
+        names = []
+        participants = analyze(match)
+        for participant in participants:
+            addDataFromAPI(participant)
+            names.append(participant)
+        prep_x()
+
+        normalized = np.transpose(np.array(normalize(total)))
+
+
+        #X_train, X_test, y_train, y_test = train_test_split(normalized,labels,random_state=1, test_size=0.1)
+        sc_X = StandardScaler()
+        #X_trainscaled=sc_X.fit_transform(X_train)
+
+        X_test = normalized
+        y_test = labels
+
+
+        X_testscaled=sc_X.fit_transform(X_test)
+
+        y_pred=newclf.predict(X_testscaled)
+        for i in range(len(y_pred)):
+            print(i)
+            print("predicted %s to play in lane %s(predict) instead of lane %s(true)" % (names[i].champion,positionsDict[y_pred[i]],positionsDict[y_test[i]]))
+
+        
+        reset()
+        print(total)
+        print(labels)
+
 
     
 
