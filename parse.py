@@ -22,6 +22,7 @@ class positions(Enum):
 client = MongoClient("mongodb+srv://m001-student:m001-mongodb-basics@sandbox.scjiy.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
 db = client.RiotData
 
+dsds
 positionsDict = dict()
 positionsDict[0] = "JGL"
 positionsDict[1] = "TOP"
